@@ -83,6 +83,27 @@ def _create_unsloth_optimizer(
     optimizer_kwargs,
     embedding_lr = 5e-5,
 ):
+    """Create an optimizer with separate learning rates for embeddings and non-
+    embeddings.
+
+    This function organizes model parameters into two groups: those that are
+    embeddings and those that are not. It assigns a specific learning rate
+    to the embeddings group, which can be different from the learning rate
+    used for the non-embeddings group. The optimizer is then created using
+    the specified optimizer class and parameters.
+
+    Args:
+        model (torch.nn.Module): The model containing parameters to optimize.
+        optimizer_cls (type): The optimizer class to use (e.g., Adam, SGD).
+        optimizer_kwargs (dict): Additional keyword arguments for the optimizer.
+        embedding_lr (float?): Learning rate for embedding parameters.
+            Defaults to 5e-5.
+
+    Returns:
+        torch.optim.Optimizer: An instance of the specified optimizer with
+        grouped parameters.
+    """
+
     lr = optimizer_kwargs["lr"]
     weight_decay = optimizer_kwargs.get("weight_decay", 0.0)
 
