@@ -82,6 +82,71 @@ def _create_unsloth_optimizer(
 pass
 
 
+def _create_unsloth_optimizer(
+    model,
+    optimizer_cls,
+    optimizer_kwargs,
+    embedding_lr = 5e-5,
+):
+    """Create an optimizer with separate learning rates for embeddings and non-
+    embeddings.
+
+    This function organizes model parameters into two groups: those that are
+    embeddings and those that are not. It assigns a specific learning rate
+    to the embeddings group, which can be different from the learning rate
+    used for the non-embeddings group. The optimizer is then created using
+    the specified optimizer class and parameters.
+
+    Args:
+        model (torch.nn.Module): The model containing parameters to optimize.
+        optimizer_cls (type): The optimizer class to use (e.g., Adam, SGD).
+        optimizer_kwargs (dict): Additional keyword arguments for the optimizer.
+        embedding_lr (float?): Learning rate for embedding parameters.
+            Defaults to 5e-5.
+
+    Returns:
+        torch.optim.Optimizer: An instance of the specified optimizer with
+        grouped parameters.
+    """
+
+    lr = optimizer_kwargs["lr"]
+    weight_decay = optimizer_kwargs.get("weight_decay", 0.0)
+
+    param_groups = \
+    {
+        "non_embeddings" : {},
+        "embeddings"     : {},
+    }
+
+    for name, param in model.named_parameters():
+        if not param.requires_grad: continue
+        if name.endswith("modules_to_save.default.weight"):
+            partial_name = name[:-len(".modules_to_save.default.weight")]
+            partial_name = partial_name[partial_name.rfind(".")+1:]
+            print(f"Unsloth: Setting lr = {embedding_lr:.2e} instead of {lr:.2e} for {partial_name}.")
+            param_groups["embeddings"]    [name] = param
+        else:
+            param_groups["non_embeddings"][name] = param
+        pass
+    pass
+
+    optimizer_grouped_parameters = [
+        {
+            "params"       : list(param_groups["non_embeddings"].values()),
+            "weight_decay" : weight_decay,
+            "lr"           : lr,
+        },
+        {
+            "params"       : list(param_groups["embeddings"].values()),
+            "weight_decay" : weight_decay,
+            "lr"           : embedding_lr,
+        },
+    ]
+    optimizer = optimizer_cls(optimizer_grouped_parameters, **optimizer_kwargs)
+    return optimizer
+pass
+
+
 class UnslothTrainer(SFTTrainer):
     def create_optimizer(self):
         embedding_learning_rate = getattr(self.args, "embedding_learning_rate", None)
