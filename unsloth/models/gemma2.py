@@ -72,6 +72,40 @@ def fast_rms_layernorm_gemma2_compiled(layernorm, X, gemma = True):
 pass
 
 
+# [TODO] We must randomnly use torch.compile?
+# I checked the gradients and formulas and I'm sure it's correct.
+# I'm stumped :(
+@torch.compile(fullgraph = True, dynamic = True, options = torch_compile_options)
+def fast_rms_layernorm_gemma2_compiled(layernorm, X, gemma = True):
+    """Apply fast RMS layer normalization to the input tensor.
+
+    This function performs fast RMS layer normalization on the input tensor
+    `X` using the specified `layernorm` parameters. It first converts the
+    input tensor to a float type, then applies the RMS normalization by
+    calculating the square root of the mean of the squares of the elements
+    along the last dimension, adding a small epsilon value for numerical
+    stability. The result is scaled by the layer normalization weight and
+    returned in its original data type.
+
+    Args:
+        layernorm (LayerNorm): An object containing layer normalization parameters,
+            including the weight and epsilon value.
+        X (torch.Tensor): The input tensor to be normalized.
+        gemma (bool?): A flag indicating whether to use GEMMA optimization.
+            Defaults to True.
+
+    Returns:
+        torch.Tensor: The normalized tensor with the same data type as the input.
+    """
+
+    old_dtype = X.dtype
+    X = X.float()
+    X = X * torch.rsqrt(X.square().mean(-1, keepdim = True) + layernorm.eps) * \
+        (1.0 + layernorm.weight.float())
+    return X.to(old_dtype)
+pass
+
+
 # Logit softcapping
 def Gemma2Attention_fast_forward(
     self,
